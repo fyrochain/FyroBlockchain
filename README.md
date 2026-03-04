@@ -20,10 +20,10 @@ FyroChain is a production-ready Layer-1 blockchain ecosystem including:
 | Network Name | FyroMainnet |
 | Chain ID | 511 |
 | Token Symbol | FYRO |
-| Max Supply | 10,000,000 FYRO |
+| Max Supply | 21,000,000 FYRO |
 | Block Time | 5 seconds |
 | Consensus | Proof of Authority (Clique) |
-| RPC URL | https://rpc.fyrochain.com |
+| RPC URL | https://rpc.fyrochain.org |
 | Explorer | https://fyroscan.org |
 
 ## Quick Start (Ubuntu 20.04/22.04)
@@ -96,7 +96,7 @@ To add FyroChain to MetaMask:
 1. Open MetaMask → Settings → Networks → Add Network
 2. Enter:
    - **Network Name:** FyroMainnet
-   - **RPC URL:** https://rpc.fyrochain.com
+   - **RPC URL:** https://rpc.fyrochain.org
    - **Chain ID:** 511
    - **Currency Symbol:** FYRO
    - **Block Explorer:** https://fyroscan.org
