@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FyroDEX — Decentralized Exchange</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Sora',sans-serif;background:#f0f4fb;color:#0f2044;min-height:100vh;display:flex;flex-direction:column;}
+nav{background:#1a3a6b;height:64px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 10px rgba(0,0,0,0.25);}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;}
+.logo img{width:32px;height:32px;border-radius:50%;border:2px solid rgba(255,255,255,0.25);}
+.logo-text{font-size:17px;font-weight:700;color:#fff;}.logo-text span{color:#60a5fa;}
+.nav-links{display:flex;gap:2px;}
+.nl{padding:7px 13px;border-radius:7px;font-size:13px;font-weight:500;color:rgba(255,255,255,0.7);cursor:pointer;border:none;background:none;font-family:'Sora',sans-serif;text-decoration:none;display:inline-flex;align-items:center;transition:.15s;}
+.nl:hover,.nl.act{background:rgba(255,255,255,0.12);color:#fff;}
+.cbtn{background:#3b82f6;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;transition:.2s;}
+.cbtn:hover{background:#2563eb;}
+.cbtn.ok{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;}
+.ticker{background:#1e4d99;padding:0 24px;height:36px;display:flex;align-items:center;gap:0;overflow:hidden;flex-shrink:0;}
+.ti{font-size:11px;color:rgba(255,255,255,0.65);display:flex;gap:6px;align-items:center;white-space:nowrap;padding:0 16px;}
+.ti strong{color:#fff;font-family:'JetBrains Mono',monospace;}
+.ti+.ti{border-left:1px solid rgba(255,255,255,0.15);}
+.up{color:#4ade80;font-weight:600;}.dn{color:#f87171;font-weight:600;}
+main{max-width:1080px;width:100%;margin:0 auto;padding:24px 16px;flex:1;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}
+.sc{background:#fff;border:1px solid #c8d8f0;border-radius:11px;padding:13px 15px;box-shadow:0 2px 8px rgba(26,58,107,0.06);}
+.sl{font-size:10px;color:#4a6090;font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:5px;}
+.sv{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f2044;}
+.sv.bl{color:#2255a4;}
+.layout{display:grid;grid-template-columns:1fr 400px;gap:18px;align-items:start;}
+.chart-box{background:#fff;border:1px solid #c8d8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(26,58,107,0.06);}
+.chart-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.price-big{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f2044;}
+.pchg{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;margin-left:8px;display:inline-block;}
+.periods{display:flex;gap:3px;}
+.pp{padding:4px 9px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #c8d8f0;background:none;color:#4a6090;font-family:'Sora',sans-serif;transition:.15s;}
+.pp:hover{border-color:#3b82f6;color:#2255a4;}
+.pp.act{background:#2255a4;color:#fff;border-color:#2255a4;}
+.chart-area{height:200px;position:relative;}
+.cinfo{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px;}
+.ci{background:#f0f4fb;border-radius:8px;padding:9px 11px;}
+.cil{font-size:9px;color:#4a6090;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+.civ{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#0f2044;margin-top:2px;}
+.card{background:#fff;border:1px solid #c8d8f0;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(26,58,107,0.06);}
+.tabs{display:flex;background:#f0f4fb;border-radius:9px;padding:3px;margin-bottom:16px;gap:2px;}
+.tab{flex:1;padding:9px;border-radius:7px;border:none;background:none;font-family:'Sora',sans-serif;font-size:13px;font-weight:500;color:#4a6090;cursor:pointer;transition:.15s;}
+.tab.act{background:#2255a4;color:#fff;font-weight:600;}
+.box{background:#f0f4fb;border:1.5px solid #c8d8f0;border-radius:11px;padding:13px;margin-bottom:4px;transition:.15s;}
+.box:focus-within{border-color:#3b82f6;}
+.blbl{font-size:9px;color:#4a6090;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:7px;}
+.brow{display:flex;align-items:center;gap:8px;}
+.inp{flex:1;background:none;border:none;font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:500;color:#0f2044;outline:none;width:100%;}
+.inp::placeholder{color:#b0c4de;}
+.tok{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid #c8d8f0;border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;cursor:pointer;color:#0f2044;transition:.15s;}
+.tok:hover{border-color:#3b82f6;}
+.ticon{width:20px;height:20px;border-radius:50%;background:#2255a4;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;}
+.bbal{font-size:10px;color:#4a6090;margin-top:5px;display:flex;justify-content:space-between;align-items:center;}
+.maxbtn{font-size:10px;color:#3b82f6;font-weight:600;cursor:pointer;background:#eff6ff;border:none;padding:2px 7px;border-radius:3px;font-family:'Sora',sans-serif;}
+.mid{display:flex;justify-content:center;margin:6px 0;}
+.arw{width:32px;height:32px;background:#fff;border:2px solid #c8d8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#2255a4;transition:all .2s;}
+.arw:hover{border-color:#3b82f6;background:#eff6ff;transform:rotate(180deg);}
+.irows{margin:12px 0;display:flex;flex-direction:column;gap:5px;}
+.ir{display:flex;justify-content:space-between;font-size:11px;color:#4a6090;}
+.ir span:last-child{color:#0f2044;font-weight:600;font-family:'JetBrains Mono',monospace;}
+.btn{width:100%;padding:13px;border-radius:11px;border:none;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:6px;transition:all .2s;}
+.btn.pri{background:#2255a4;color:#fff;}
+.btn.pri:hover{background:#1a3a6b;transform:translateY(-1px);}
+.btn.dis{background:#dbe8f8;color:#8da8d0;cursor:not-allowed;}
+.hide{display:none;}.show{display:block;}
+.msg{padding:10px 13px;border-radius:8px;font-size:11px;margin-top:8px;display:none;line-height:1.5;}
+.msg.suc{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;display:block;}
+.msg.err{background:#fef2f2;color:#dc2626;border:1px solid #fecaca;display:block;}
+.msg.inf{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;display:block;}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:4px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+footer{background:#1a3a6b;padding:24px;flex-shrink:0;}
+.foot-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+.foot-brand{display:flex;align-items:center;gap:8px;}
+.foot-brand img{width:28px;height:28px;border-radius:50%;opacity:.9;}
+.foot-brand-text{color:rgba(255,255,255,0.8);font-size:13px;font-weight:600;}
+.foot-brand-text span{color:#60a5fa;}
+.foot-desc{color:rgba(255,255,255,0.45);font-size:11px;margin-top:2px;}
+.foot-links{display:flex;gap:0;flex-wrap:wrap;}
+.foot-links a{color:rgba(255,255,255,0.55);text-decoration:none;font-size:12px;padding:6px 14px;border-radius:6px;transition:.15s;}
+.foot-links a:hover{color:#fff;background:rgba(255,255,255,0.08);}
+.foot-bottom{border-top:1px solid rgba(255,255,255,0.08);margin-top:16px;padding-top:14px;max-width:1080px;margin-left:auto;margin-right:auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+.foot-bottom p{color:rgba(255,255,255,0.3);font-size:11px;}
+.foot-tags{display:flex;gap:6px;}
+.ftag{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.4);font-size:10px;padding:3px 9px;border-radius:20px;font-family:'JetBrains Mono',monospace;}
+@media(max-width:780px){.layout{grid-template-columns:1fr;}.stats{grid-template-columns:repeat(2,1fr);}.ticker{gap:0;padding:0 12px;}.ti{padding:0 8px;font-size:10px;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="https://fyrochain.org">
+    <img src="https://fyroscan.org/logo192.png" onerror="this.style.display='none'">
+    <span class="logo-text">Fyro<span>DEX</span></span>
+  </a>
+  <div class="nav-links">
+    <button class="nl act" onclick="switchTab('swap',this)">⇄ Swap</button>
+    <button class="nl" onclick="switchTab('liq',this)">+ Liquidity</button>
+    <a class="nl" href="https://fyrochain.org" target="_blank">Explorer ↗</a>
+  </div>
+  <button class="cbtn" id="cb" onclick="conn()">Connect Wallet</button>
+</nav>
+
+<div class="ticker">
+  <div class="ti">FYRO/USD <strong id="tprice">$0.0500</strong> <span class="up" id="tchg">+0.00%</span></div>
+  <div class="ti">Chain ID <strong>511</strong></div>
+  <div class="ti">Block <strong id="tblock">loading...</strong></div>
+  <div class="ti">Max Supply <strong>21,000,000 FYRO</strong></div>
+  <div class="ti">Contract <strong>0x2121...a24D4</strong></div>
+</div>
+
+<main>
+  <div class="stats">
+    <div class="sc"><div class="sl">FYRO Price</div><div class="sv bl" id="sprice">$0.0500</div></div>
+    <div class="sc"><div class="sl">Market Cap</div><div class="sv" id="smcap">$1,050,000</div></div>
+    <div class="sc"><div class="sl">Your Balance</div><div class="sv bl" id="sbal">—</div></div>
+    <div class="sc"><div class="sl">Latest Block</div><div class="sv" id="sblock">—</div></div>
+  </div>
+
+  <div class="layout">
+    <div class="chart-box">
+      <div class="chart-top">
+        <div>
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+            <img src="https://fyroscan.org/logo192.png" style="width:26px;height:26px;border-radius:50%;" onerror="this.style.display='none'">
+            <span style="font-weight:700;font-size:14px;color:#0f2044;">FYRO / USD</span>
+          </div>
+          <div>
+            <span class="price-big" id="cprice">$0.0500</span>
+            <span class="pchg" id="cchg" style="background:#dcfce7;color:#15803d;">+0.00%</span>
+          </div>
+        </div>
+        <div class="periods">
+          <button class="pp act" onclick="setPeriod('1H',this)">1H</button>
+          <button class="pp" onclick="setPeriod('24H',this)">24H</button>
+          <button class="pp" onclick="setPeriod('7D',this)">7D</button>
+          <button class="pp" onclick="setPeriod('30D',this)">30D</button>
+        </div>
+      </div>
+      <div class="chart-area"><canvas id="chart"></canvas></div>
+      <div class="cinfo">
+        <div class="ci"><div class="cil">24h High</div><div class="civ" id="chi">—</div></div>
+        <div class="ci"><div class="cil">24h Low</div><div class="civ" id="clo">—</div></div>
+        <div class="ci"><div class="cil">24h Volume</div><div class="civ" id="cvol">—</div></div>
+        <div class="ci"><div class="cil">Total Supply</div><div class="civ">21M FYRO</div></div>
+        <div class="ci"><div class="cil">Circulating</div><div class="civ" id="ccirc">—</div></div>
+        <div class="ci"><div class="cil">Halvings Done</div><div class="civ">0 / 64</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="tabs">
+          <button class="tab act" id="ts" onclick="swSec('swap')">⇄ Swap</button>
+          <button class="tab" id="tl" onclick="swSec('liq')">+ Liquidity</button>
+        </div>
+
+        <div id="swapSec" class="show">
+          <div class="box">
+            <div class="blbl">You Pay</div>
+            <div class="brow">
+              <input class="inp" id="aIn" type="number" placeholder="0.00" oninput="calc()" min="0">
+              <div class="tok" onclick="flip()">
+                <div class="ticon" id="ficon">F</div>
+                <span id="fsym">FYRO</span>
+                <span style="color:#b0c4de;font-size:9px;margin-left:2px;">▾</span>
+              </div>
+            </div>
+            <div class="bbal">
+              <span>Balance: <span id="fb" style="font-family:'JetBrains Mono',monospace;">—</span></span>
+              <button class="maxbtn" onclick="setMax()">MAX</button>
+            </div>
+          </div>
+          <div class="mid"><button class="arw" onclick="flip()">⇅</button></div>
+          <div class="box">
+            <div class="blbl">You Receive</div>
+            <div class="brow">
+              <input class="inp" id="aOut" type="number" placeholder="0.00" readonly style="color:#8da8d0;">
+              <div class="tok" style="cursor:default;">
+                <div class="ticon" style="background:#4a6090;">W</div>
+                <span id="tsym">WFYRO</span>
+              </div>
+            </div>
+            <div class="bbal"><span>Balance: <span id="tb" style="font-family:'JetBrains Mono',monospace;">—</span></span></div>
+          </div>
+          <div class="irows" id="info" style="display:none;">
+            <div class="ir"><span>Rate</span><span id="rate">—</span></div>
+            <div class="ir"><span>Fee (0.3%)</span><span id="fee">—</span></div>
+            <div class="ir"><span>Min. Received</span><span id="minr">—</span></div>
+          </div>
+          <div id="sa" class="msg"></div>
+          <button class="btn dis" id="sb" onclick="doSwap()">Connect Wallet to Swap</button>
+        </div>
+
+        <div id="liqSec" class="hide">
+          <div class="box">
+            <div class="blbl">FYRO Amount</div>
+            <div class="brow">
+              <input class="inp" id="lf" type="number" placeholder="0.00" min="0">
+              <div class="tok" style="cursor:default;"><div class="ticon">F</div><span>FYRO</span></div>
+            </div>
+            <div class="bbal"><span>Balance: <span id="lfb" style="font-family:'JetBrains Mono',monospace;">—</span></span></div>
+          </div>
+          <div class="mid"><div style="color:#4a6090;font-size:20px;line-height:1;">+</div></div>
+          <div class="box">
+            <div class="blbl">WFYRO Amount</div>
+            <div class="brow">
+              <input class="inp" id="lw" type="number" placeholder="0.00" min="0">
+              <div class="tok" style="cursor:default;"><div class="ticon" style="background:#4a6090;">W</div><span>WFYRO</span></div>
+            </div>
+            <div class="bbal"><span>Balance: <span id="lwb" style="font-family:'JetBrains Mono',monospace;">—</span></span></div>
+          </div>
+          <div class="irows" style="margin-top:12px;">
+            <div class="ir"><span>Pool</span><span>FYRO / WFYRO</span></div>
+            <div class="ir"><span>Fee Tier</span><span>0.3%</span></div>
+            <div class="ir"><span>Network</span><span>FyroChain (511)</span></div>
+          </div>
+          <div id="la" class="msg"></div>
+          <button class="btn pri" onclick="doLiq()" style="margin-top:12px;">Add Liquidity</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <div>
+      <div class="foot-brand">
+        <img src="https://fyroscan.org/logo192.png" onerror="this.style.display='none'">
+        <span class="foot-brand-text">Fyro<span>DEX</span></span>
+      </div>
+      <div class="foot-desc">Decentralized Exchange on FyroChain &middot; Chain ID 511</div>
+    </div>
+    <div class="foot-links">
+      <a href="https://fyrochain.org">🔍 Explorer</a>
+      <a href="https://github.com/fyrochain" target="_blank">💻 GitHub</a>
+      <a href="https://fyrochain.org/whitepaper.pdf" target="_blank">📄 Whitepaper</a>
+      <a href="https://t.me/fyrochain" target="_blank">💬 Telegram</a>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <p>© 2026 FyroDEX. Powered by FyroChain. All rights reserved.</p>
+    <div class="foot-tags">
+      <span class="ftag">EVM Compatible</span>
+      <span class="ftag">Chain ID: 511</span>
+      <span class="ftag">21M Supply</span>
+      <span class="ftag">0.3% Fee</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ── Contracts ──────────────────────────────────────
+const C={
+  FYRO:"0x21213B659c7440ad62E4b5E55246E4750EEa24D4",
+  WFYRO:"0x8BE10A840764404C407025daB4b8c0Cfb5f950f2",
+  ROUTER:"0x7E9f78A8326eb2839282238d25B72c35a2b3d63B"
+};
+const CID=511, RPC="https://rpc.fyrochain.org";
+const EA=["function balanceOf(address) view returns (uint256)","function approve(address,uint256) returns (bool)"];
+const RA=["function swapExactFYROForTokens(uint,address[],address,uint) payable returns (uint[])","function swapExactTokensForTokens(uint,uint,address[],address,uint) returns (uint[])","function addLiquidityFYRO(address,uint,uint,uint,address,uint) payable returns (uint,uint,address)"];
+let prov,sign,addr,ft="FYRO",busy=false,myChart=null;
+
+// ── Chart (no time adapter needed) ─────────────────
+function genData(pts, base, vol) {
+  const d = []; let p = base;
+  for (let i = 0; i <= pts; i++) {
+    p = Math.max(0.0001, p + (Math.random() - 0.48) * vol);
+    d.push(+p.toFixed(5));
+  }
+  return d;
+}
+function makeLabels(pts) {
+  const labels = [];
+  for (let i = 0; i <= pts; i++) labels.push(i);
+  return labels;
+}
+function initChart() {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const d = genData(48, 0.05, 0.002);
+  const g = ctx.createLinearGradient(0, 0, 0, 200);
+  g.addColorStop(0, 'rgba(59,130,246,0.22)');
+  g.addColorStop(1, 'rgba(59,130,246,0)');
+  myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: makeLabels(48),
+      datasets: [{
+        data: d,
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+        backgroundColor: g,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#3b82f6',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: c => '$' + c.parsed.y.toFixed(5) },
+          backgroundColor: '#1a3a6b',
+          titleColor: '#93c5fd',
+          bodyColor: '#fff',
+          borderColor: '#2255a4',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: false,
+        }
+      },
+      scales: {
+        x: { display: false },
+        y: {
+          display: true,
+          position: 'right',
+          grid: { color: 'rgba(200,216,240,0.4)', drawBorder: false },
+          ticks: {
+            color: '#4a6090',
+            font: { family: "'JetBrains Mono'", size: 10 },
+            callback: v => '$' + v.toFixed(4),
+            maxTicksLimit: 5,
+          }
+        }
+      }
+    }
+  });
+  updStats(d);
+}
+
+function updStats(d) {
+  const last = d[d.length-1], first = d[0];
+  const chg = ((last - first) / first * 100).toFixed(2);
+  const isUp = +chg >= 0;
+  const ps = '$' + last.toFixed(5);
+  const ct = (isUp ? '+' : '') + chg + '%';
+  ['cprice','sprice','tprice'].forEach(id => document.getElementById(id).textContent = ps);
+  const ce = document.getElementById('cchg');
+  ce.textContent = ct;
+  ce.style.background = isUp ? '#dcfce7' : '#fee2e2';
+  ce.style.color = isUp ? '#15803d' : '#dc2626';
+  const tc = document.getElementById('tchg');
+  tc.textContent = ct; tc.className = isUp ? 'up' : 'dn';
+  document.getElementById('chi').textContent = '$' + Math.max(...d).toFixed(5);
+  document.getElementById('clo').textContent = '$' + Math.min(...d).toFixed(5);
+  document.getElementById('cvol').textContent = (Math.random()*80000+10000).toFixed(0) + ' FYRO';
+  document.getElementById('smcap').textContent = '$' + (last * 21000000).toLocaleString(undefined, {maximumFractionDigits: 0});
+}
+
+function setPeriod(p, el) {
+  document.querySelectorAll('.pp').forEach(b => b.classList.remove('act'));
+  el.classList.add('act');
+  const m = {'1H':{pts:60,vol:0.001},'24H':{pts:48,vol:0.002},'7D':{pts:168,vol:0.008},'30D':{pts:120,vol:0.02}};
+  const cfg = m[p];
+  const d = genData(cfg.pts, 0.05, cfg.vol);
+  myChart.data.labels = makeLabels(cfg.pts);
+  myChart.data.datasets[0].data = d;
+  myChart.update('none');
+  updStats(d);
+}
+
+// Live ticker animation
+setInterval(() => {
+  const curr = parseFloat(document.getElementById('tprice').textContent.replace('$','')) || 0.05;
+  const np = Math.max(0.0001, curr + (Math.random() - 0.49) * 0.0008);
+  document.getElementById('tprice').textContent = '$' + np.toFixed(5);
+}, 4000);
+
+// ── Block fetch ─────────────────────────────────────
+async function fetchBlock() {
+  try {
+    const p = new ethers.JsonRpcProvider(RPC);
+    const b = await p.getBlockNumber();
+    const bs = b.toLocaleString();
+    document.getElementById('sblock').textContent = bs;
+    document.getElementById('tblock').textContent = '#' + bs;
+    document.getElementById('ccirc').textContent = ((b * 50) / 1e6).toFixed(2) + 'M';
+  } catch(e) {
+    document.getElementById('tblock').textContent = '—';
+  }
+}
+
+// ── Wallet ──────────────────────────────────────────
+async function conn() {
+  // Find MetaMask specifically, ignore TronLink
+  let ethereum = null;
+  if (window.ethereum) {
+    if (window.ethereum.providers) {
+      ethereum = window.ethereum.providers.find(p => p.isMetaMask && !p.isTronLink);
+    } else if (window.ethereum.isMetaMask && !window.ethereum.isTronLink) {
+      ethereum = window.ethereum;
+    }
+  }
+  if (!ethereum) {
+    msg("sa", "MetaMask not found! Please install MetaMask extension.", "err");
+    return;
+  }
+  try {
+    await ethereum.request({ method: "eth_requestAccounts" });
+    prov = new ethers.BrowserProvider(ethereum);
+    sign = await prov.getSigner();
+    addr = await sign.getAddress();
+    const net = await prov.getNetwork();
+    if (Number(net.chainId) !== CID) {
+      try {
+        await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1FF" }] });
+      } catch {
+        await ethereum.request({ method: "wallet_addEthereumChain", params: [{
+          chainId: "0x1FF",
+          chainName: "FyroChain Mainnet",
+          rpcUrls: [RPC],
+          nativeCurrency: { name: "Fyro", symbol: "FYRO", decimals: 18 },
+          blockExplorerUrls: ["https://fyrochain.org"]
+        }]});
+      }
+      prov = new ethers.BrowserProvider(ethereum);
+      sign = await prov.getSigner();
+      addr = await sign.getAddress();
+    }
+    const b = document.getElementById("cb");
+    b.textContent = "✓ " + addr.slice(0,6) + "..." + addr.slice(-4);
+    b.classList.add("ok");
+    await upd();
+    document.getElementById("sb").textContent = "Swap";
+    document.getElementById("sb").className = "btn pri";
+  } catch(e) {
+    msg("sa", "Connection failed: " + (e.message || e), "err");
+  }
+}
+
+async function upd() {
+  if (!sign) return;
+  try {
+    const f = await prov.getBalance(addr);
+    const w = await new ethers.Contract(C.WFYRO, EA, prov).balanceOf(addr);
+    const ff = parseFloat(ethers.formatEther(f)).toFixed(4);
+    const wf = parseFloat(ethers.formatEther(w)).toFixed(4);
+    document.getElementById("sbal").textContent = ff + " FYRO";
+    document.getElementById("fb").textContent = ft === "FYRO" ? ff : wf;
+    document.getElementById("tb").textContent = ft === "FYRO" ? wf : ff;
+    document.getElementById("lfb").textContent = ff;
+    document.getElementById("lwb").textContent = wf;
+  } catch(e) {}
+}
+
+// ── Swap ────────────────────────────────────────────
+function calc() {
+  const a = parseFloat(document.getElementById("aIn").value);
+  if (!a || a <= 0) {
+    document.getElementById("aOut").value = "";
+    document.getElementById("info").style.display = "none";
+    return;
+  }
+  const fee = a * 0.003, out = a - fee;
+  document.getElementById("aOut").value = out.toFixed(6);
+  document.getElementById("info").style.display = "flex";
+  document.getElementById("info").style.flexDirection = "column";
+  document.getElementById("rate").textContent = "1 " + ft + " = 1 " + (ft==="FYRO"?"WFYRO":"FYRO");
+  document.getElementById("fee").textContent = fee.toFixed(6) + " " + ft;
+  document.getElementById("minr").textContent = (out * 0.995).toFixed(6);
+}
+
+async function doSwap() {
+  if (!sign || busy) return;
+  const v = document.getElementById("aIn").value;
+  if (!v || parseFloat(v) <= 0) { msg("sa", "Enter an amount", "inf"); return; }
+  busy = true;
+  const btn = document.getElementById("sb");
+  btn.innerHTML = '<span class="spin"></span>Swapping...';
+  btn.className = "btn dis";
+  try {
+    const r = new ethers.Contract(C.ROUTER, RA, sign);
+    const aIn = ethers.parseEther(v), aMin = aIn * 99n / 100n, dl = Math.floor(Date.now()/1000) + 600;
+    let tx;
+    if (ft === "FYRO") {
+      tx = await r.swapExactFYROForTokens(aMin, [C.WFYRO, C.FYRO], addr, dl, { value: aIn });
+    } else {
+      await new ethers.Contract(C.FYRO, EA, sign).approve(C.ROUTER, aIn);
+      tx = await r.swapExactTokensForTokens(aIn, aMin, [C.FYRO, C.WFYRO], addr, dl);
+    }
+    msg("sa", "⏳ Tx: " + tx.hash.slice(0, 20) + "...", "inf");
+    await tx.wait();
+    msg("sa", "✅ Swap successful!", "suc");
+    document.getElementById("aIn").value = "";
+    document.getElementById("aOut").value = "";
+    await upd();
+  } catch(e) { msg("sa", e.reason || e.message || "Transaction failed", "err"); }
+  busy = false;
+  btn.textContent = "Swap";
+  btn.className = "btn pri";
+}
+
+async function doLiq() {
+  if (!sign) { msg("la", "Connect wallet first", "inf"); return; }
+  const fa = document.getElementById("lf").value, wa = document.getElementById("lw").value;
+  if (!fa || !wa) { msg("la", "Enter both amounts", "inf"); return; }
+  const btn = document.querySelector("#liqSec .btn");
+  btn.innerHTML = '<span class="spin"></span>Adding...';
+  btn.className = "btn dis";
+  try {
+    const r = new ethers.Contract(C.ROUTER, RA, sign);
+    const fa18 = ethers.parseEther(fa), wa18 = ethers.parseEther(wa), dl = Math.floor(Date.now()/1000) + 600;
+    await new ethers.Contract(C.FYRO, EA, sign).approve(C.ROUTER, fa18);
+    msg("la", "⏳ Approving...", "inf");
+    const tx = await r.addLiquidityFYRO(C.FYRO, fa18, fa18*99n/100n, wa18*99n/100n, addr, dl, { value: wa18 });
+    msg("la", "⏳ Adding liquidity...", "inf");
+    await tx.wait();
+    msg("la", "✅ Liquidity added!", "suc");
+    await upd();
+  } catch(e) { msg("la", e.reason || e.message || "Failed", "err"); }
+  btn.textContent = "Add Liquidity";
+  btn.className = "btn pri";
+}
+
+// ── UI helpers ──────────────────────────────────────
+function swSec(s) {
+  document.getElementById("swapSec").className = s === "swap" ? "show" : "hide";
+  document.getElementById("liqSec").className = s === "liq" ? "show" : "hide";
+  document.getElementById("ts").className = "tab" + (s === "swap" ? " act" : "");
+  document.getElementById("tl").className = "tab" + (s === "liq" ? " act" : "");
+}
+function switchTab(s, el) {
+  document.querySelectorAll('.nl').forEach(b => b.classList.remove('act'));
+  el.classList.add('act');
+  swSec(s === "swap" ? "swap" : "liq");
+}
+function flip() {
+  ft = ft === "FYRO" ? "WFYRO" : "FYRO";
+  document.getElementById("fsym").textContent = ft;
+  document.getElementById("tsym").textContent = ft === "FYRO" ? "WFYRO" : "FYRO";
+  document.getElementById("ficon").textContent = ft === "FYRO" ? "F" : "W";
+  document.getElementById("ficon").style.background = ft === "FYRO" ? "#2255a4" : "#4a6090";
+  document.getElementById("aIn").value = "";
+  document.getElementById("aOut").value = "";
+  upd();
+}
+async function setMax() {
+  if (!sign) return;
+  try {
+    const b = ft === "FYRO"
+      ? await prov.getBalance(addr)
+      : await new ethers.Contract(C.FYRO, EA, prov).balanceOf(addr);
+    document.getElementById("aIn").value = parseFloat(ethers.formatEther(b)).toFixed(6);
+    calc();
+  } catch(e) {}
+}
+function msg(id, text, type) {
+  const el = document.getElementById(id);
+  el.className = "msg " + type;
+  el.textContent = text;
+}
+
+// ── Init ────────────────────────────────────────────
+window.addEventListener("load", async () => {
+  initChart();
+  fetchBlock();
+  setInterval(fetchBlock, 15000);
+  if (window.ethereum && (window.ethereum.selectedAddress || window.ethereum.isMetaMask)) {
+    // Auto-connect only if already connected
+    if (window.ethereum.selectedAddress) await conn();
+  }
+});
+</script>
+</body>
+</html>

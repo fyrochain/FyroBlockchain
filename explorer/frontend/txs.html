@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transactions - FyroScan</title>
+  <link rel="icon" href="https://fyroscan.org/logo192.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <div id="navbar"></div>
+
+    <section class="page-hero">
+      <div class="page-hero-inner">
+        <div class="page-hero-label">FyroChain Explorer</div>
+        <div class="page-hero-title">Transactions</div>
+      </div>
+    </section>
+
+    <main class="main">
+      <div class="page-title-area">
+        <h1>Transactions</h1>
+        <p>Complete transaction history on FyroMainnet</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <span class="table-card-title">Latest Transactions</span>
+          <span class="table-card-meta" id="txTotal"></span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Txn Hash</th>
+                <th>Block</th>
+                <th>Age</th>
+                <th>From</th>
+                <th></th>
+                <th>To</th>
+                <th>Value</th>
+                <th>Gas Price</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="txsBody">
+              <tr>
+                <td colspan="9">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <p>Loading transactions...</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="txPagination" class="pagination"></div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    initPage('txs');
+    let currentPage = parseInt(getParam('page') || '1');
+
+    async function loadTxs(page) {
+      currentPage = page;
+      const data = await apiFetch(`/transactions?page=${page}&limit=25`);
+      const tbody = document.getElementById('txsBody');
+      if (!data) {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><p>Failed to load transactions.</p></div></td></tr>`;
+        return;
+      }
+      document.getElementById('txTotal').textContent = `${formatNumber(data.total || 0)} transactions found`;
+      if (data.data && data.data.length > 0) {
+        tbody.innerHTML = data.data.map(tx => `
+        <tr>
+          <td><a href="tx.html?hash=${tx.hash}" class="hash-link">${truncateHash(tx.hash, 14, 6)}</a></td>
+          <td><a href="block.html?n=${tx.block_number}" class="block-link">${formatNumber(tx.block_number)}</a></td>
+          <td class="time-ago">${timeAgo(tx.timestamp)}</td>
+          <td><a href="address.html?addr=${tx.from_addr}" class="addr-link">${truncateHash(tx.from_addr, 8, 6)}</a></td>
+          <td><span style="font-size:11px;color:#94a3b8;">→</span></td>
+          <td>${tx.to_addr ? `<a href="address.html?addr=${tx.to_addr}" class="addr-link">${truncateHash(tx.to_addr, 8, 6)}</a>` : '<em class="text-muted">Contract</em>'}</td>
+          <td><span style="font-size:12px;font-weight:600;color:#2563eb;">${formatFyro(tx.value, 4)}</span></td>
+          <td class="text-secondary" style="font-size:12px;">${formatGwei(tx.gas_price)}</td>
+          <td>${statusBadge(tx.status)}</td>
+        </tr>
+      `).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><p>No transactions found.</p></div></td></tr>`;
+      }
+      // Pagination
+      if (data.totalPages > 1) {
+        const p = document.getElementById('txPagination');
+        let html = `<button class="page-btn" onclick="loadTxs(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>`;
+        const start = Math.max(1, page - 2), end = Math.min(data.totalPages, page + 2);
+        if (start > 1) html += `<button class="page-btn" onclick="loadTxs(1)">1</button>${start > 2 ? '<span style="color:#94a3b8;padding:0 4px;">...</span>' : ''}`;
+        for (let i = start; i <= end; i++) html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadTxs(${i})">${i}</button>`;
+        if (end < data.totalPages) html += `${end < data.totalPages - 1 ? '<span style="color:#94a3b8;padding:0 4px;">...</span>' : ''}<button class="page-btn" onclick="loadTxs(${data.totalPages})">${data.totalPages}</button>`;
+        html += `<button class="page-btn" onclick="loadTxs(${page + 1})" ${page >= data.totalPages ? 'disabled' : ''}>Next →</button>`;
+        p.innerHTML = html;
+      }
+    }
+    loadTxs(currentPage);
+  </script>
+</body>
+
+</html>

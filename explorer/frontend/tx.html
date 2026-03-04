@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transaction - FyroScan</title>
+  <link rel="icon" href="https://fyroscan.org/logo192.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <div id="navbar"></div>
+
+    <section class="page-hero">
+      <div class="page-hero-inner">
+        <div class="page-hero-label">FyroChain Explorer</div>
+        <div class="page-hero-title">Transaction Details</div>
+      </div>
+    </section>
+
+    <main class="main">
+
+      <!-- Breadcrumb -->
+      <div style="margin-bottom:16px;font-size:13px;color:#94a3b8;">
+        <a href="index.html" style="color:#2563eb;">Home</a>
+        <span style="margin:0 6px;">›</span>
+        <a href="txs.html" style="color:#2563eb;">Transactions</a>
+        <span style="margin:0 6px;">›</span>
+        <span id="breadcrumbTx" style="font-family:monospace;font-size:12px;">Transaction</span>
+      </div>
+
+      <div class="detail-card">
+        <div class="detail-card-header">
+          📋 Transaction Information
+        </div>
+        <div class="detail-grid" id="txGrid">
+          <div style="text-align:center;padding:40px;color:#94a3b8;">Loading transaction details...</div>
+        </div>
+      </div>
+
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    initPage('txs');
+
+    async function loadTx() {
+      const hash = getParam('hash');
+      if (!hash) {
+        document.getElementById('txGrid').innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><p>No transaction hash provided.</p></div>`;
+        return;
+      }
+
+      document.getElementById('breadcrumbTx').textContent = truncateHash(hash, 16, 8);
+      document.title = `Tx ${truncateHash(hash)} - FyroScan`;
+
+      const data = await apiFetch(`/tx/${hash}`);
+      if (!data) {
+        document.getElementById('txGrid').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div><p>Transaction not found.</p></div>`;
+        return;
+      }
+
+      let gasFee = '—';
+      try {
+        if (data.gas_price && data.gas_used) {
+          gasFee = formatFyro((BigInt(data.gas_price) * BigInt(data.gas_used)).toString(), 8);
+        }
+      } catch (e) { }
+
+      const rows = [
+        ['Transaction Hash',
+          `<span class="mono" style="font-size:12.5px;word-break:break-all;">${data.hash}</span>
+         <button class="copy-btn" onclick="copyToClipboard('${data.hash}', this)">📋 Copy</button>`],
+        ['Status', statusBadge(data.status)],
+        ['Block',
+          `<a href="block.html?n=${data.block_number}" class="block-link">${formatNumber(data.block_number)}</a>
+         <span style="font-size:11.5px;color:#94a3b8;margin-left:8px;">Finalized</span>`],
+        ['Timestamp',
+          `🕐 ${fullDate(data.timestamp)}
+         <span class="time-ago">(${timeAgo(data.timestamp)})</span>`],
+        ['From',
+          `<a href="address.html?addr=${data.from_addr}" class="addr-link mono" style="font-size:12.5px;">${data.from_addr}</a>
+         <button class="copy-btn" onclick="copyToClipboard('${data.from_addr}', this)">📋 Copy</button>`],
+        ['To', data.to_addr
+          ? `<a href="address.html?addr=${data.to_addr}" class="addr-link mono" style="font-size:12.5px;">${data.to_addr}</a>
+           <button class="copy-btn" onclick="copyToClipboard('${data.to_addr}', this)">📋 Copy</button>`
+          : `<span style="color:#94a3b8;font-style:italic;">Contract Creation</span>`],
+        ['Value',
+          `<span style="font-size:16px;font-weight:700;color:#2563eb;">${formatFyro(data.value, 8)}</span>
+         <span style="font-size:12px;color:#94a3b8;margin-left:8px;">($0.00)</span>`],
+        ['Transaction Fee',
+          `<span style="font-weight:600;">${gasFee}</span>`],
+        ['Gas Price',
+          `<span class="gas-badge">⛽ ${formatGwei(data.gas_price)}</span>`],
+        ['Gas Limit / Gas Used',
+          `<span style="font-weight:600;">${formatNumber(data.gas || data.gas_used)}</span>
+         <span style="color:#94a3b8;margin:0 6px;">|</span>
+         <span>${formatNumber(data.gas_used || 0)}</span>
+         ${data.gas && data.gas > 0 ? `<span style="font-size:11.5px;color:#94a3b8;margin-left:6px;">(${((data.gas_used / data.gas) * 100).toFixed(2)}%)</span>` : ''}`],
+        ['Nonce', `<span style="font-weight:600;">${data.nonce}</span>`],
+        ['Input Data',
+          data.input && data.input !== '0x'
+            ? `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;word-break:break-all;max-height:120px;overflow-y:auto;color:#475569;">${data.input}</div>`
+            : `<span style="background:#f0fdf4;color:#16a34a;padding:3px 10px;border-radius:5px;font-size:12.5px;border:1px solid #bbf7d0;">0x (FYRO Transfer)</span>`],
+      ];
+
+      document.getElementById('txGrid').innerHTML = rows.map(([k, v]) => `
+      <div class="detail-row">
+        <div class="detail-key">${k}</div>
+        <div class="detail-val">${v}</div>
+      </div>
+    `).join('');
+    }
+
+    loadTx();
+  </script>
+</body>
+
+</html>

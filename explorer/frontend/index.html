@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FyroScan - FyroChain Block Explorer</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <div class="page-wrapper">
+    <div id="navbar"></div>
+    <section class="hero">
+      <div class="hero-inner">
+        <h1 class="hero-title">The FyroChain Blockchain Explorer</h1>
+        <p class="hero-subtitle">Mainnet · Chain ID 511 · Token: FYRO · Proof of Authority</p>
+        <div class="hero-search">
+          <select class="hero-search-select" id="heroSearchType">
+            <option value="all">All Filters</option>
+            <option value="address">Address</option>
+            <option value="txn">Txn Hash</option>
+            <option value="block">Block</option>
+          </select>
+          <input type="text" class="hero-search-input" id="heroSearchInput" placeholder="Search by Address / Txn Hash / Block / Token">
+          <button class="hero-search-btn" id="heroSearchBtn">🔍 Search</button>
+        </div>
+        <div class="hero-hints">
+          <span class="hero-hint">Address: 0x...</span>
+          <span class="hero-hint">Transaction: 0x...64chars</span>
+          <span class="hero-hint">Block: #1234</span>
+        </div>
+      </div>
+    </section>
+    <div class="stats-bar">
+      <div class="stats-bar-inner">
+        <div class="stat-bar-item"><span class="stat-bar-label">FYRO Price:</span><span class="stat-bar-value up" id="sbPrice">$68.5690</span><span style="font-size:11px;color:#16a34a;">▲ 2.4%</span></div>
+        <div class="stat-bar-item"><span class="stat-bar-label">Market Cap:</span><span class="stat-bar-value" id="sbMktCap">$68.5690M</span></div>
+        <div class="stat-bar-item"><span class="stat-bar-label">Gas:</span><span class="stat-bar-value" id="sbGas"><span class="gas-badge">⛽ <span id="gasVal">—</span></span></span></div>
+        <div class="stat-bar-item"><span class="stat-bar-label">Latest Block:</span><span class="stat-bar-value blue" id="sbBlock">—</span></div>
+        <div class="stat-bar-item"><span class="stat-bar-label">Total Txns:</span><span class="stat-bar-value" id="sbTxns">—</span></div>
+      </div>
+    </div>
+    <main class="main">
+      <div class="stats-dashboard" id="statsDashboard">
+        <div class="stat-dash-item"><div class="stat-dash-label">FYRO Price</div><div class="stat-dash-value blue" id="statPrice">$68.5690</div><div class="stat-dash-sub"><span class="up">▲ +2.4%</span> (24h)</div></div>
+        <div class="stat-dash-item"><div class="stat-dash-label">Market Cap</div><div class="stat-dash-value" id="statMktCap">$68.5690M</div><div class="stat-dash-sub">FyroMainnet</div></div>
+        <div class="stat-dash-item"><div class="stat-dash-label">Transactions</div><div class="stat-dash-value" id="statTxns">—</div><div class="stat-dash-sub">All time total</div></div>
+        <div class="stat-dash-item"><div class="stat-dash-label">Gas Price</div><div class="stat-dash-value" id="statGas">—</div><div class="stat-dash-sub">Current base fee</div></div>
+        <div class="stat-dash-item"><div class="stat-dash-label">Last Block</div><div class="stat-dash-value blue" id="statBlock">—</div><div class="stat-dash-sub">~5s block time</div></div>
+        <div class="stat-dash-chart"><div class="chart-title">Transaction History (14 Days)</div><canvas id="txHistoryChart"></canvas></div>
+      </div>
+      <div class="twin-grid">
+        <div>
+          <div class="section-hdr"><div class="section-hdr-title"><span class="dot"></span> Latest Blocks</div><a href="blocks.html" class="view-all-link">View all blocks</a></div>
+          <div class="card"><ul class="list-items" id="blocksList"><li class="list-item"><div class="list-icon">📦</div><div class="list-main"><span class="list-primary">Loading...</span></div></li></ul><div class="card-footer"><a href="blocks.html">View all blocks →</a></div></div>
+        </div>
+        <div>
+          <div class="section-hdr"><div class="section-hdr-title"><span class="dot"></span> Latest Transactions</div><a href="txs.html" class="view-all-link">View all txns</a></div>
+          <div class="card"><ul class="list-items" id="txsList"><li class="list-item"><div class="list-icon green">📋</div><div class="list-main"><span class="list-primary">Loading...</span></div></li></ul><div class="card-footer"><a href="txs.html">View all transactions →</a></div></div>
+        </div>
+      </div>
+    </main>
+    <div id="footer"></div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    initPage('home');
+    document.getElementById('heroSearchBtn').onclick = () => doSearch(document.getElementById('heroSearchInput').value);
+    document.getElementById('heroSearchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(e.target.value); });
+    function drawChart() {
+      const ctx = document.getElementById('txHistoryChart');
+      if (!ctx || !window.Chart) return;
+      const labels = [];
+      const now = new Date();
+      for (let i = 13; i >= 0; i--) { const d = new Date(now); d.setDate(d.getDate() - i); labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })); }
+      new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: labels.map(() => Math.floor(Math.random() * 200 + 50)), fill: true, backgroundColor: 'rgba(37,99,235,0.08)', borderColor: '#2563eb', borderWidth: 1.5, pointRadius: 0, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false, beginAtZero: true } } } });
+    }
+    async function loadHomepage() {
+      const stats = await apiFetch('/stats');
+      if (stats) {
+        document.getElementById('statBlock').textContent = formatNumber(stats.latestBlock || 0);
+        document.getElementById('statTxns').textContent = formatNumber(stats.totalTxns || 0);
+        document.getElementById('sbBlock').textContent = formatNumber(stats.latestBlock || 0);
+        document.getElementById('sbTxns').textContent = formatNumber(stats.totalTxns || 0);
+      }
+      document.getElementById('statGas').textContent = '5.00 Gwei';
+      document.getElementById('gasVal').textContent = '5.00 Gwei';
+      const blocks = await apiFetch('/blocks?page=1&limit=8');
+      const blocksList = document.getElementById('blocksList');
+      if (blocks && blocks.data && blocks.data.length > 0) {
+        blocksList.innerHTML = blocks.data.map(b => `<li class="list-item"><div class="list-icon">📦</div><div class="list-main"><a href="block.html?n=${b.number}" class="list-primary">#${formatNumber(b.number)}</a><span class="list-secondary">Miner: <a href="address.html?addr=${b.miner}">${truncateHash(b.miner, 8, 6)}</a> · ${b.tx_count || 0} txns</span></div><div class="list-right"><span class="reward">${b.tx_count || 0} txns</span><span class="time">${timeAgo(b.timestamp)}</span></div></li>`).join('');
+      } else { blocksList.innerHTML = `<li class="list-item"><div class="empty-state"><div class="empty-state-icon">📦</div><p>No blocks found.</p></div></li>`; }
+      const txs = await apiFetch('/transactions?page=1&limit=8');
+      const txsList = document.getElementById('txsList');
+      if (txs && txs.data && txs.data.length > 0) {
+        txsList.innerHTML = txs.data.map(tx => `<li class="list-item"><div class="list-icon green">📋</div><div class="list-main"><a href="tx.html?hash=${tx.hash}" class="list-primary">${truncateHash(tx.hash, 14, 6)}</a><span class="list-secondary">From: <a href="address.html?addr=${tx.from_addr}">${truncateHash(tx.from_addr, 8, 4)}</a> → <a href="${tx.to_addr ? 'address.html?addr='+tx.to_addr : '#'}">${tx.to_addr ? truncateHash(tx.to_addr, 8, 4) : 'Contract'}</a></span></div><div class="list-right"><span class="amount">${formatFyro(tx.value, 4)}</span><span class="time">${timeAgo(tx.timestamp)}</span></div></li>`).join('');
+      } else { txsList.innerHTML = `<li class="list-item"><div class="empty-state"><div class="empty-state-icon">📋</div><p>No transactions yet.</p></div></li>`; }
+    }
+    setTimeout(() => drawChart(), 200);
+    autoRefresh(loadHomepage, 12000);
+  </script>
+</body>
+</html>

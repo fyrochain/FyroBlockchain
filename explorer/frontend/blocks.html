@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blocks - FyroScan</title>
+  <link rel="icon" href="https://fyroscan.org/logo192.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <div id="navbar"></div>
+
+    <section class="page-hero">
+      <div class="page-hero-inner">
+        <div class="page-hero-label">FyroChain Explorer</div>
+        <div class="page-hero-title">Blocks</div>
+      </div>
+    </section>
+
+    <main class="main">
+      <div class="page-title-area">
+        <h1>Blocks</h1>
+        <p>All mined blocks on FyroMainnet</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-card-header">
+          <span class="table-card-title">Block List</span>
+          <span class="table-card-meta" id="blockTotal"></span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Block</th>
+                <th>Age</th>
+                <th>Txns</th>
+                <th>Miner</th>
+                <th>Gas Used</th>
+                <th>Gas Limit</th>
+                <th>Base Fee</th>
+                <th>Hash</th>
+              </tr>
+            </thead>
+            <tbody id="blocksBody">
+              <tr>
+                <td colspan="8">
+                  <div class="empty-state">
+                    <div class="empty-state-icon">⏳</div>
+                    <p>Loading blocks...</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="blocksPagination" class="pagination"></div>
+      </div>
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    initPage('blocks');
+    let currentPage = parseInt(getParam('page') || '1');
+
+    async function loadBlocks(page) {
+      currentPage = page;
+      const data = await apiFetch(`/blocks?page=${page}&limit=25`);
+      const tbody = document.getElementById('blocksBody');
+      if (!data) {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><p>Failed to load blocks.</p></div></td></tr>`;
+        return;
+      }
+      document.getElementById('blockTotal').textContent = `${formatNumber(data.total || 0)} blocks found`;
+      if (data.data && data.data.length > 0) {
+        tbody.innerHTML = data.data.map(b => {
+          const pct = b.gas_limit > 0 ? ((b.gas_used / b.gas_limit) * 100).toFixed(1) : '0.0';
+          return `
+          <tr>
+            <td><a href="block.html?n=${b.number}" class="block-link">${formatNumber(b.number)}</a></td>
+            <td class="time-ago">${timeAgo(b.timestamp)}</td>
+            <td><a href="block.html?n=${b.number}" style="color:#2563eb;font-weight:600;">${b.tx_count || 0}</a></td>
+            <td><a href="address.html?addr=${b.miner}" class="addr-link">${truncateHash(b.miner, 10, 6)}</a></td>
+            <td>
+              <span style="font-size:12.5px;">${formatNumber(b.gas_used)}</span>
+              <span style="font-size:11px;color:#94a3b8;"> (${pct}%)</span>
+            </td>
+            <td style="font-size:12.5px;">${formatNumber(b.gas_limit)}</td>
+            <td style="font-size:12.5px;">5.00 Gwei</td>
+            <td><a href="block.html?n=${b.number}" class="hash-link">${truncateHash(b.hash, 10, 6)}</a></td>
+          </tr>
+        `;
+        }).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📦</div><p>No blocks found.</p></div></td></tr>`;
+      }
+      // Pagination
+      if (data.totalPages > 1) {
+        const p = document.getElementById('blocksPagination');
+        let html = `<button class="page-btn" onclick="loadBlocks(${page - 1})" ${page <= 1 ? 'disabled' : ''}>← Prev</button>`;
+        const start = Math.max(1, page - 2), end = Math.min(data.totalPages, page + 2);
+        if (start > 1) html += `<button class="page-btn" onclick="loadBlocks(1)">1</button>${start > 2 ? '<span style="color:#94a3b8;padding:0 4px;">...</span>' : ''}`;
+        for (let i = start; i <= end; i++) html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="loadBlocks(${i})">${i}</button>`;
+        if (end < data.totalPages) html += `${end < data.totalPages - 1 ? '<span style="color:#94a3b8;padding:0 4px;">...</span>' : ''}<button class="page-btn" onclick="loadBlocks(${data.totalPages})">${data.totalPages}</button>`;
+        html += `<button class="page-btn" onclick="loadBlocks(${page + 1})" ${page >= data.totalPages ? 'disabled' : ''}>Next →</button>`;
+        p.innerHTML = html;
+      }
+    }
+    loadBlocks(currentPage);
+  </script>
+</body>
+
+</html>

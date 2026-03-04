@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Block - FyroScan</title>
+  <link rel="icon" href="https://fyroscan.org/logo192.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body>
+  <div class="page-wrapper">
+    <div id="navbar"></div>
+
+    <section class="page-hero">
+      <div class="page-hero-inner">
+        <div class="page-hero-label">FyroChain Explorer</div>
+        <div class="page-hero-title" id="pageHeroTitle">Block Details</div>
+      </div>
+    </section>
+
+    <main class="main">
+
+      <!-- Breadcrumb -->
+      <div style="margin-bottom:16px;font-size:13px;color:#94a3b8;">
+        <a href="index.html" style="color:#2563eb;">Home</a>
+        <span style="margin:0 6px;">›</span>
+        <a href="blocks.html" style="color:#2563eb;">Blocks</a>
+        <span style="margin:0 6px;">›</span>
+        <span id="breadcrumbBlock">Block</span>
+      </div>
+
+      <!-- Block Detail Card -->
+      <div class="detail-card" id="blockDetailCard">
+        <div class="detail-card-header">
+          📦 Block Information
+          <div style="display:flex;gap:8px;margin-left:auto;" id="blockNav"></div>
+        </div>
+        <div class="detail-grid" id="blockGrid">
+          <div style="text-align:center;padding:40px;color:#94a3b8;">Loading block details...</div>
+        </div>
+      </div>
+
+      <!-- Transactions in Block -->
+      <div class="table-card" id="blockTxsSection" style="display:none;">
+        <div class="table-card-header">
+          <span class="table-card-title">Transactions</span>
+          <span class="table-card-meta" id="blockTxCount"></span>
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Txn Hash</th>
+                <th>From</th>
+                <th></th>
+                <th>To</th>
+                <th>Value</th>
+                <th>Gas Used</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="blockTxsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+    <div id="footer"></div>
+  </div>
+
+  <script src="assets/js/app.js"></script>
+  <script>
+    initPage('blocks');
+
+    async function loadBlock() {
+      const n = getParam('n') || getParam('hash');
+      if (!n) {
+        document.getElementById('blockGrid').innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><p>No block identifier provided.</p></div>`;
+        return;
+      }
+
+      const raw = await apiFetch(`/block/${n}`); const data = raw && raw.block ? raw.block : raw;
+      if (!data) {
+        document.getElementById('blockGrid').innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div><p>Block not found.</p></div>`;
+        return;
+      }
+
+      const num = data.number;
+      document.getElementById('pageHeroTitle').textContent = `Block #${formatNumber(num)}`;
+      document.getElementById('breadcrumbBlock').textContent = `#${formatNumber(num)}`;
+      document.title = `Block #${num} - FyroScan`;
+
+      // Nav buttons
+      document.getElementById('blockNav').innerHTML = `
+      ${num > 0 ? `<a href="block.html?n=${Number(num) - 1}" class="page-btn" style="padding:5px 12px;font-size:12px;">◀ Prev</a>` : ''}
+      <a href="block.html?n=${Number(num) + 1}" class="page-btn" style="padding:5px 12px;font-size:12px;">Next ▶</a>
+    `;
+
+      const pct = data.gas_limit > 0 ? ((data.gas_used / data.gas_limit) * 100).toFixed(2) : '0.00';
+
+      const rows = [
+        ['Block Height', `<span class="fw-700 text-accent" style="font-size:15px;">${formatNumber(num)}</span>
+        <span style="margin-left:8px;font-size:11px;background:#eff6ff;color:#2563eb;padding:2px 8px;border-radius:4px;border:1px solid #bfdbfe;">Finalized</span>`],
+        ['Timestamp', `🕐 ${fullDate(data.timestamp)} <span class="time-ago">(${timeAgo(data.timestamp)})</span>`],
+        ['Transactions', `<a href="#blockTxsSection" style="color:#2563eb;font-weight:600;">${data.tx_count || 0} transactions</a> in this block`],
+        ['Block Hash', `<span class="mono" style="font-size:12px;word-break:break-all;">${data.hash}</span>
+        <button class="copy-btn" onclick="copyToClipboard('${data.hash}', this)">📋 Copy</button>`],
+        ['Parent Hash', `<a href="block.html?n=${Number(num) - 1}" class="addr-link" style="font-size:12px;">${data.parent_hash || '—'}</a>`],
+        ['Miner', `<img src="https://fyroscan.org/logo192.png" style="width:16px;height:16px;border-radius:4px;vertical-align:middle;margin-right:6px;" onerror="this.style.display='none'">
+        <a href="address.html?addr=${data.miner}" class="addr-link mono" style="font-size:12.5px;">${data.miner || '—'}</a>
+        <button class="copy-btn" onclick="copyToClipboard('${data.miner}', this)">📋 Copy</button>`],
+        ['Gas Used', `${formatNumber(data.gas_used)}
+        <span style="color:#94a3b8;margin:0 6px;">|</span>
+        <span style="font-size:12px;">${pct}%</span>
+        <div style="height:4px;width:120px;background:#e2e8f0;border-radius:2px;display:inline-block;vertical-align:middle;margin-left:8px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:#2563eb;border-radius:2px;"></div>
+        </div>`],
+        ['Gas Limit', formatNumber(data.gas_limit)],
+        ['Base Fee Per Gas', `<span class="gas-badge">⛽ 5.00 Gwei</span>`],
+        ['Difficulty', data.difficulty || '1'],
+        ['Total Difficulty', data.total_difficulty || data.difficulty || '1'],
+        ['Size', `${formatNumber(data.size || 0)} bytes`],
+        ['Extra Data', `<span class="mono" style="font-size:11.5px;word-break:break-all;color:#475569;">${data.extra_data || '0x'}</span>`],
+      ];
+
+      document.getElementById('blockGrid').innerHTML = rows.map(([k, v]) => `
+      <div class="detail-row">
+        <div class="detail-key">${k}</div>
+        <div class="detail-val">${v}</div>
+      </div>
+    `).join('');
+
+      // Load transactions
+      if (data.tx_count > 0) {
+        const txs = await apiFetch(`/transactions?block=${num}&limit=50`);
+        const section = document.getElementById('blockTxsSection');
+        section.style.display = '';
+        document.getElementById('blockTxCount').textContent = `${data.tx_count} transactions`;
+
+        if (txs && txs.data && txs.data.length > 0) {
+          document.getElementById('blockTxsBody').innerHTML = txs.data.map(tx => `
+          <tr>
+            <td><a href="tx.html?hash=${tx.hash}" class="hash-link">${truncateHash(tx.hash, 14, 6)}</a></td>
+            <td><a href="address.html?addr=${tx.from_addr}" class="addr-link">${truncateHash(tx.from_addr, 8, 6)}</a></td>
+            <td><span style="font-size:11px;color:#94a3b8;">→</span></td>
+            <td>${tx.to_addr ? `<a href="address.html?addr=${tx.to_addr}" class="addr-link">${truncateHash(tx.to_addr, 8, 6)}</a>` : '<em class="text-muted">Contract</em>'}</td>
+            <td style="font-weight:600;color:#2563eb;font-size:12px;">${formatFyro(tx.value, 4)}</td>
+            <td style="font-size:12px;">${formatNumber(tx.gas_used || 0)}</td>
+            <td>${statusBadge(tx.status)}</td>
+          </tr>
+        `).join('');
+        }
+      }
+    }
+
+    loadBlock();
+  </script>
+</body>
+
+</html>
