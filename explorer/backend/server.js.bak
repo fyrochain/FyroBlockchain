@@ -1,0 +1,124 @@
+// server.js - Production Compatible FyroScan Backend
+
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
+
+const { pool, initSchema } = require('./db');
+const { startSync } = require('./sync');
+
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+app.use(cors());
+app.use(express.json());
+
+/* ================= STATS ================= */
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [blockRes, txRes, latestRes] = await Promise.all([
+      pool.query('SELECT COUNT(*) as count FROM blocks'),
+      pool.query('SELECT COUNT(*) as count FROM transactions'),
+      pool.query('SELECT MAX(number) as latest FROM blocks')
+    ]);
+
+    res.json({
+      totalBlocks: parseInt(blockRes.rows[0].count),
+      totalTxns: parseInt(txRes.rows[0].count),
+      latestBlock: parseInt(latestRes.rows[0].latest || 0),
+      networkName: process.env.NETWORK_NAME || 'FyroMainnet',
+      chainId: parseInt(process.env.CHAIN_ID || '511'),
+      tokenSymbol: process.env.TOKEN_SYMBOL || 'FYRO'
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ================= BLOCKS (WITH PAGINATION) ================= */
+app.get('/api/blocks', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.min(50, parseInt(req.query.limit || '20'));
+    const offset = (page - 1) * limit;
+
+    const [dataRes, countRes] = await Promise.all([
+      pool.query(
+        'SELECT number, hash, timestamp, miner, tx_count FROM blocks ORDER BY number DESC LIMIT $1 OFFSET $2',
+        [limit, offset]
+      ),
+      pool.query('SELECT COUNT(*) as count FROM blocks')
+    ]);
+
+    const total = parseInt(countRes.rows[0].count);
+
+    res.json({
+      data: dataRes.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch blocks' });
+  }
+});
+
+/* ================= TRANSACTIONS (WITH PAGINATION) ================= */
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.min(50, parseInt(req.query.limit || '20'));
+    const offset = (page - 1) * limit;
+
+    const [dataRes, countRes] = await Promise.all([
+      pool.query(
+        'SELECT hash, from_address, to_address, value FROM transactions ORDER BY id DESC LIMIT $1 OFFSET $2',
+        [limit, offset]
+      ),
+      pool.query('SELECT COUNT(*) as count FROM transactions')
+    ]);
+
+    const total = parseInt(countRes.rows[0].count);
+
+    res.json({
+      data: dataRes.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch transactions' });
+  }
+});
+
+/* ================= STATIC ================= */
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
+});
+
+/* ================= START ================= */
+async function main() {
+  await initSchema();
+
+  app.listen(PORT, () => {
+    console.log(`Explorer running on port ${PORT}`);
+  });
+
+  await startSync();
+}
+
+main().catch(err => {
+  console.error('Startup error:', err);
+  process.exit(1);
+});

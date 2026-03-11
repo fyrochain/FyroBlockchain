@@ -91,8 +91,11 @@
            <button class="copy-btn" onclick="copyToClipboard('${data.to_addr}', this)">📋 Copy</button>`
           : `<span style="color:#94a3b8;font-style:italic;">Contract Creation</span>`],
         ['Value',
-          `<span style="font-size:16px;font-weight:700;color:#2563eb;">${formatFyro(data.value, 8)}</span>
-         <span style="font-size:12px;color:#94a3b8;margin-left:8px;">($0.00)</span>`],
+          data.token_amount
+            ? `<span style="font-size:16px;font-weight:700;color:#2563eb;">${(BigInt(data.token_amount) / BigInt('1000000000000000000')).toString()}.${String(BigInt(data.token_amount) % BigInt('1000000000000000000')).padStart(18,'0').slice(0,4)} FYRO</span>
+               <span style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:4px;font-size:11px;margin-left:8px;">ERC-20 Token Transfer</span>`
+            : `<span style="font-size:16px;font-weight:700;color:#2563eb;">${formatFyro(data.value, 8)}</span>
+               <span style="font-size:12px;color:#94a3b8;margin-left:8px;">($0.00)</span>`],
         ['Transaction Fee',
           `<span style="font-weight:600;">${gasFee}</span>`],
         ['Gas Price',

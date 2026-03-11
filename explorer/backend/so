@@ -1,0 +1,231 @@
+// server.js - FyroScan Express API Server
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
+
+const { pool, initSchema } = require('./db');
+const { startSync } = require('./sync');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// ─── Middleware ───────────────────────────────────────────
+app.use(cors());
+app.use(express.json());
+
+// ─── API Routes ───────────────────────────────────────────
+
+// GET /api/stats - Network statistics
+app.get('/api/stats', async (req, res) => {
+  try {
+    const [blockRes, txRes, latestRes] = await Promise.all([
+      pool.query('SELECT COUNT(*) as count FROM blocks'),
+      pool.query('SELECT COUNT(*) as count FROM transactions'),
+      pool.query('SELECT MAX(number) as latest FROM blocks')
+    ]);
+
+    res.json({
+      totalBlocks: parseInt(blockRes.rows[0].count),
+      totalTxns: parseInt(txRes.rows[0].count),
+      latestBlock: parseInt(latestRes.rows[0].latest || 0),
+      networkName: process.env.NETWORK_NAME || 'FyroMainnet',
+      chainId: parseInt(process.env.CHAIN_ID || '511'),
+      tokenSymbol: process.env.TOKEN_SYMBOL || 'FYRO'
+    });
+  } catch (err) {
+    console.error('[API] /stats error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/blocks?page=1&limit=20 - Paginated blocks
+app.get('/api/blocks', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.min(100, parseInt(req.query.limit || '20'));
+    const offset = (page - 1) * limit;
+
+    const [dataRes, countRes] = await Promise.all([
+      pool.query('SELECT * FROM blocks ORDER BY number DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      pool.query('SELECT COUNT(*) as count FROM blocks')
+    ]);
+
+    const total = parseInt(countRes.rows[0].count);
+
+    res.json({
+      data: dataRes.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    console.error('[API] /blocks error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/blocks/:id - Block by number or hash
+app.get('/api/blocks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    let block;
+
+    if (/^\d+$/.test(id)) {
+      const result = await pool.query('SELECT * FROM blocks WHERE number = $1', [parseInt(id)]);
+      block = result.rows[0];
+    } else if (/^0x[a-fA-F0-9]{64}$/.test(id)) {
+      const result = await pool.query('SELECT * FROM blocks WHERE hash = $1', [id.toLowerCase()]);
+      block = result.rows[0];
+    } else {
+      return res.status(400).json({ error: 'Invalid block identifier' });
+    }
+
+    if (!block) return res.status(404).json({ error: 'Block not found' });
+    res.json(block);
+  } catch (err) {
+    console.error('[API] /blocks/:id error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/transactions?page=1&limit=20&block=NUM - Paginated transactions
+app.get('/api/transactions', async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.min(100, parseInt(req.query.limit || '20'));
+    const offset = (page - 1) * limit;
+    const blockNum = req.query.block ? parseInt(req.query.block) : null;
+
+    let query, countQuery, params, countParams;
+
+    if (blockNum !== null) {
+      query = `SELECT t.*, b.timestamp FROM transactions t
+               LEFT JOIN blocks b ON t.block_number = b.number
+               WHERE t.block_number = $1 ORDER BY t.nonce ASC LIMIT $2 OFFSET $3`;
+      countQuery = 'SELECT COUNT(*) as count FROM transactions WHERE block_number = $1';
+      params = [blockNum, limit, offset];
+      countParams = [blockNum];
+    } else {
+      query = `SELECT t.*, b.timestamp FROM transactions t
+               LEFT JOIN blocks b ON t.block_number = b.number
+               ORDER BY b.number DESC, t.nonce ASC LIMIT $1 OFFSET $2`;
+      countQuery = 'SELECT COUNT(*) as count FROM transactions';
+      params = [limit, offset];
+      countParams = [];
+    }
+
+    const [dataRes, countRes] = await Promise.all([
+      pool.query(query, params),
+      pool.query(countQuery, countParams)
+    ]);
+
+    const total = parseInt(countRes.rows[0].count);
+
+    res.json({
+      data: dataRes.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (err) {
+    console.error('[API] /transactions error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/transactions/:hash - Transaction by hash
+app.get('/api/transactions/:hash', async (req, res) => {
+  try {
+    const { hash } = req.params;
+    if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
+      return res.status(400).json({ error: 'Invalid transaction hash' });
+    }
+
+    const result = await pool.query(`
+      SELECT t.*, b.timestamp FROM transactions t
+      LEFT JOIN blocks b ON t.block_number = b.number
+      WHERE t.hash = $1
+    `, [hash.toLowerCase()]);
+
+    if (!result.rows[0]) return res.status(404).json({ error: 'Transaction not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[API] /transactions/:hash error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/address/:address - Address details + transactions
+app.get('/api/address/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    if (!/^0x[a-fA-F0-9]{40}$/i.test(address)) {
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+
+    const addr = address.toLowerCase();
+    const page = Math.max(1, parseInt(req.query.page || '1'));
+    const limit = Math.min(50, parseInt(req.query.limit || '20'));
+    const offset = (page - 1) * limit;
+
+    const [txsRes, countRes, firstSeenRes] = await Promise.all([
+      pool.query(`
+        SELECT t.*, b.timestamp FROM transactions t
+        LEFT JOIN blocks b ON t.block_number = b.number
+        WHERE t.from_addr = $1 OR t.to_addr = $1
+        ORDER BY b.number DESC
+        LIMIT $2 OFFSET $3
+      `, [addr, limit, offset]),
+
+      pool.query(`
+        SELECT COUNT(*) as count FROM transactions
+        WHERE from_addr = $1 OR to_addr = $1
+      `, [addr]),
+
+      pool.query(`
+        SELECT b.timestamp FROM transactions t
+        LEFT JOIN blocks b ON t.block_number = b.number
+        WHERE t.from_addr = $1 OR t.to_addr = $1
+        ORDER BY b.number ASC LIMIT 1
+      `, [addr])
+    ]);
+
+    const total = parseInt(countRes.rows[0].count);
+
+    // Get balance from Web3 if available, otherwise estimate
+    let balance = '0';
+    try {
+      const { Web3 } = require('web3');
+      const w3 = new Web3(process.env.RPC_URL || 'http://localhost:8545');
+      const bal = await w3.eth.getBalance(address);
+      balance = bal.toString();
+    } catch (e) {
+      // fallback: estimate from transactions
+    }
+
+    res.json({
+      address: addr,
+      balance,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      firstSeen: firstSeenRes.rows[0]?.timestamp || null,
+      transactions: txsRes.rows
+    });
+  } catch (err) {
+    console.error('[API] /address/:address error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/search/:query - Smart search
+app.get('/api/search/:query', async (req, res) => {
+  try {
+    const { query } = req.params;
+    const q = query.trim();
+
+    if (/^\d+$/.test(q)) {
+      return res.json({ type: 'block', redirect: `/block.html?n=

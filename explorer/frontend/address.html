@@ -153,7 +153,11 @@
             <td><a href="address.html?addr=${tx.from_addr}" class="addr-link">${truncateHash(tx.from_addr, 8, 6)}</a></td>
             <td><span style="font-size:11px;color:#94a3b8;">→</span></td>
             <td>${tx.to_addr ? `<a href="address.html?addr=${tx.to_addr}" class="addr-link">${truncateHash(tx.to_addr, 8, 6)}</a>` : '<em class="text-muted">Contract</em>'}</td>
-            <td style="font-size:12.5px;font-weight:600;color:#2563eb;">${formatFyro(tx.value, 4)}</td>
+            <td style="font-size:12.5px;font-weight:600;color:#2563eb;">
+              ${tx.token_amount 
+                ? (BigInt(tx.token_amount) / BigInt('1000000000000000000')).toString() + ' FYRO <span style="background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:3px;font-size:10px;">Token</span>'
+                : formatFyro(tx.value, 4)}
+            </td>
             <td>${statusBadge(tx.status)}</td>
           </tr>
         `;

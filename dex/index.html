@@ -271,7 +271,7 @@ const RA=["function swapExactFYROForTokens(uint,address[],address,uint) payable 
 let prov,sign,addr,ft="FYRO",busy=false,myChart=null;
 
 // ── Chart (no time adapter needed) ─────────────────
-function genData(pts, base, vol) {
+function genData(pts, base, vol) { base=68.56; // {
   const d = []; let p = base;
   for (let i = 0; i <= pts; i++) {
     p = Math.max(0.0001, p + (Math.random() - 0.48) * vol);

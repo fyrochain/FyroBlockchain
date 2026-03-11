@@ -1,0 +1,4 @@
+node/data/
+node.log
+*.tar.gz
+{node,explorer
